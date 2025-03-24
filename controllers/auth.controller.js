@@ -3,8 +3,8 @@ const admin = require("../config/firebaseConfig");
 const User = require("../models/user.model");
 const responseHandler = require("../utils/response");
 const errorHandler = require("../utils/error");
-const bcrypt = require("bcryptjs");
-const nodemailer = require("nodemailer");
+const https = require("https");
+
 
 const googleLogin = async (req, res) => {
   try {
@@ -66,12 +66,53 @@ const googleLogin = async (req, res) => {
   }
 };
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
+const facebookLogin = async (req, res) => {
+  try {
+    const { accessToken } = req.body;
+    if (!accessToken) {
+      return errorHandler(res, 400, "Access Token is required.");
+    }
 
-module.exports = {googleLogin};
+    const facebookGraphUrl = `https://graph.facebook.com/me?fields=id,name,email,picture&access_token=${accessToken}`;
+
+    https.get(facebookGraphUrl, (fbRes) => {
+      let data = "";
+
+      fbRes.on("data", (chunk) => {
+        data += chunk;
+      });
+
+      fbRes.on("end", async () => {
+        const fbUser = JSON.parse(data);
+        if (!fbUser || fbUser.error) {
+          return errorHandler(res, 400, "Invalid Facebook Token");
+        }
+
+        let user = await User.findOne({ email: fbUser.email });
+        if (!user) {
+          user = new User({
+            name: fbUser.name,
+            email: fbUser.email,
+            profilePic: fbUser.picture.data.url,
+            isVerified: true,
+            role: "user",
+            accountMethod: "facebook", // ✅ Ensure accountMethod is always provided
+            providerId: fbUser.id,
+            lastLogin: new Date(),
+          });
+
+          await user.save();
+        }
+
+        responseHandler(res, 200, "Facebook login successful", { user });
+      });
+    }).on("error", (err) => {
+      errorHandler(res, 500, "Facebook Login Failed", err.message);
+    });
+  } catch (err) {
+    errorHandler(res, 500, "Facebook Login Failed", err.message);
+  }
+};
+
+
+module.exports = {googleLogin,facebookLogin};

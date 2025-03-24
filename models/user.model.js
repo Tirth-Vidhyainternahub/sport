@@ -30,7 +30,7 @@ const UserSchema = new mongoose.Schema(
     },
     accountMethod: {
       type: String,
-      enum: ["google", "manual"],
+      enum: ["google", "manual", "facebook"],
       required: true, // Track signup method
     },
     providerId: {
