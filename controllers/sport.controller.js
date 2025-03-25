@@ -135,3 +135,20 @@ exports.getSportById = async (req, res) => {
     return errorHandler(res, 500, "Server error", error.message);
   }
 };
+
+exports.getSportsByCountry = async (req, res) => {
+  try {
+    const { countryName } = req.params;
+
+    // Find sports where the country name matches in the embedded country details
+    const sports = await Sport.find({ "countries.name": countryName });
+
+    if (!sports.length) {
+      return errorHandler(res, 404, "No sports found for this country.");
+    }
+
+    return responseHandler(res, 200, "Sports fetched successfully.", sports);
+  } catch (error) {
+    return errorHandler(res, 500, "Server error", error.message);
+  }
+};

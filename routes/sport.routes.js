@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { createSport ,updateSport,deleteSport,getAllSports,getSportById} = require("../controllers/sport.controller");
+const { createSport ,updateSport,deleteSport,getAllSports,getSportById,getSportsByCountry} = require("../controllers/sport.controller");
 const {validateToken} = require("../middleware/auth.middleware");
 const {validateAdmin} = require("../middleware/auth.middleware");
 
@@ -9,5 +9,6 @@ router.patch("/:sportId", validateToken, validateAdmin, updateSport); // Update 
 router.delete("/:sportId", validateToken, validateAdmin, deleteSport);
 router.get("/", validateToken,getAllSports); // Fetch all sports
 router.get("/:sportId", validateToken,getSportById); // Fetch a sport by ID
+router.get("/by-country/:countryName", validateToken, getSportsByCountry);
 
 module.exports = router;
