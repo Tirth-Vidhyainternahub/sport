@@ -126,7 +126,7 @@ const transporter = nodemailer.createTransport({
 
 const manualSignup = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, role } = req.body; // Extract role from req.body
 
     if (!name || !email || !password) {
       return errorHandler(res, 400, "All fields are required.");
@@ -149,7 +149,7 @@ const manualSignup = async (req, res) => {
       password: hashedPassword,
       profilePic: req.file.path, // Cloudinary image URL
       isVerified: false,
-      role: "user",
+      role: role || "user", // Use provided role, otherwise default to "user"
       accountMethod: "manual",
     });
 
