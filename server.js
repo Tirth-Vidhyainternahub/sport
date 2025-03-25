@@ -7,9 +7,11 @@ const connectDB = require("./config/dbconfig");
 const responseHandler = require("./utils/response");
 const errorHandler = require("./utils/error");
 
+
 // Import Routes
 const authRoutes = require("./routes/auth.routes");
 const testRoutes = require("./routes/test.routes");
+const countryRoutes = require("./routes/country.routes");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -25,6 +27,7 @@ app.use(express.json()); // Parse JSON requests
 // Routes
 app.use("/api/v1/auth", authRoutes); // Authentication routes
 app.use("/api/v1/test", testRoutes)
+app.use("/api/v1/countries", countryRoutes);
 
 // Health Check Route
 app.get("/api/v1/health", (req, res) => {
