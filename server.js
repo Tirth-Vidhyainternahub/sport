@@ -7,11 +7,11 @@ const connectDB = require("./config/dbconfig");
 const responseHandler = require("./utils/response");
 const errorHandler = require("./utils/error");
 
-
 // Import Routes
 const authRoutes = require("./routes/auth.routes");
 const testRoutes = require("./routes/test.routes");
 const countryRoutes = require("./routes/country.routes");
+const sportRoutes = require("./routes/sport.routes");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -20,14 +20,15 @@ const PORT = process.env.PORT || 5000;
 connectDB();
 
 // Middleware
-app.use(cors()); // Enable CORS
-app.use(morgan("dev")); // Logging
-app.use(express.json()); // Parse JSON requests
+app.use(cors()); 
+app.use(morgan("dev"));
+app.use(express.json()); 
 
 // Routes
-app.use("/api/v1/auth", authRoutes); // Authentication routes
-app.use("/api/v1/test", testRoutes)
+app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/test", testRoutes);
 app.use("/api/v1/countries", countryRoutes);
+app.use("/api/v1/sports", sportRoutes);
 
 // Health Check Route
 app.get("/api/v1/health", (req, res) => {
