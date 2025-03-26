@@ -12,6 +12,7 @@ const authRoutes = require("./routes/auth.routes");
 const testRoutes = require("./routes/test.routes");
 const countryRoutes = require("./routes/country.routes");
 const sportRoutes = require("./routes/sport.routes");
+const leagueRoutes = require("./routes/league.routes")
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -29,6 +30,7 @@ app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/test", testRoutes);
 app.use("/api/v1/countries", countryRoutes);
 app.use("/api/v1/sports", sportRoutes);
+app.use("/api/v1/league", leagueRoutes)
 
 // Health Check Route
 app.get("/api/v1/health", (req, res) => {

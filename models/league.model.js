@@ -8,25 +8,27 @@ const LeagueSchema = new mongoose.Schema(
       unique: true,
     },
     sport: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Sport", // Relates league to a sport
-      required: true,
+      _id: false, // Prevent MongoDB from generating an extra _id for sub-document
+      id: { type: mongoose.Schema.Types.ObjectId, ref: "Sport", required: true },
+      name: { type: String, required: true },
+      logo: { type: String, required: true },
     },
     country: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Country", // Relates league to a country
-      required: true,
+      _id: false,
+      id: { type: mongoose.Schema.Types.ObjectId, ref: "Country", required: true },
+      name: { type: String, required: true },
+      flag: { type: String, required: true },
     },
     category: {
       type: String,
-      enum: ["League", "Adhoc", "GrandSlam"],
+      enum: ["League"],
       required: true,
     },
     startDate: {
-      type: Date, // Only for Adhoc type
+      type: Date,
     },
     endDate: {
-      type: Date, // Only for Adhoc type
+      type: Date,
     },
   },
   { timestamps: true }
