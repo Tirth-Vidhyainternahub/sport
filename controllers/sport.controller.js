@@ -1,39 +1,63 @@
 const Sport = require("../models/sport.model");
-const Country = require("../models/country.model"); // Ensure this model exists
+const Country = require("../models/country.model");
 const errorHandler = require("../utils/error");
 const responseHandler = require("../utils/response");
+const cloudinary = require("../config/cloudinaryConfig");
 
 exports.createSport = async (req, res) => {
   try {
-    const { name, category, logo, countries } = req.body;
+    let { name, category, countries } = req.body;
 
     // Validate required fields
-    if (!name || !category || !logo || !countries || !Array.isArray(countries)) {
-      return errorHandler(res, 400, "All fields are required, and countries must be an array.");
+    if (!name || !category || !req.file || !countries) {
+      return errorHandler(res, 400, "All fields are required.");
     }
 
-    // Fetch country details from DB
-    const countryDocs = await Country.find({ name: { $in: countries } });
-
-    if (countryDocs.length !== countries.length) {
-      return errorHandler(res, 400, "One or more countries are invalid.");
+    // Parse countries JSON string into an array
+    try {
+      countries = JSON.parse(countries);
+      if (!Array.isArray(countries) || countries.length === 0) {
+        return errorHandler(res, 400, "Countries must be a non-empty array.");
+      }
+    } catch (error) {
+      return errorHandler(res, 400, "Invalid countries format. Must be a JSON array.");
     }
 
-    // Map country details
-    const countryData = countryDocs.map((country) => ({
-      id: country._id,
-      name: country.name,
-      flag: country.flag,
-    }));
-
-    // Check if sport already exists
-    const existingSport = await Sport.findOne({ name });
+    // Check if sport already exists (case insensitive)
+    const existingSport = await Sport.findOne({ name: { $regex: new RegExp(`^${name}$`, "i") } });
     if (existingSport) {
       return errorHandler(res, 400, "Sport already exists.");
     }
 
-    // Create new sport with embedded country details
-    const newSport = new Sport({ name, category, logo, countries: countryData });
+    // Upload logo to Cloudinary
+    const result = await cloudinary.uploader.upload(req.file.path, { folder: "sports" }); // Store in 'sports' folder
+    if (!result.secure_url) {
+      return errorHandler(res, 500, "Failed to upload logo.");
+    }
+
+    // Fetch country documents from the database
+    const countryDocs = await Country.find({ name: { $in: countries } });
+
+    // Validate that all countries exist
+    if (countryDocs.length !== countries.length) {
+      return errorHandler(res, 400, "One or more countries are invalid.");
+    }
+
+    // ✅ Fix: Include `_id` field
+    const countryData = countryDocs.map((country) => ({
+      id: country._id, // <-- Added this line to fix validation error
+      name: country.name,
+      flag: country.flag,
+    }));
+
+    // Create new sport entry
+    const newSport = new Sport({
+      name,
+      category,
+      logo: result.secure_url,
+      countries: countryData, // Now includes `id`
+    });
+
     await newSport.save();
 
     return responseHandler(res, 201, "Sport created successfully", newSport);
@@ -44,46 +68,57 @@ exports.createSport = async (req, res) => {
 
 exports.updateSport = async (req, res) => {
   try {
-    const { sportId } = req.params; // Get sport ID from URL
-    const { name, category, logo, countries } = req.body;
+    const { sportId } = req.params;
+    let { name, category, countries } = req.body;
 
-    // Check if the sport exists
+    // Find the existing sport
     const existingSport = await Sport.findById(sportId);
     if (!existingSport) {
       return errorHandler(res, 404, "Sport not found.");
     }
 
-    let updatedFields = {}; // Store fields to be updated
-
-    // Update name if provided
+    let updatedFields = {};
     if (name) updatedFields.name = name;
-
-    // Update category if provided
     if (category) updatedFields.category = category;
 
-    // Update logo if provided
-    if (logo) updatedFields.logo = logo;
+    // Handle logo update
+    if (req.file) {
+      const result = await cloudinary.uploader.upload(req.file.path, { folder: "sports" });
+      if (!result || !result.secure_url) {
+        return errorHandler(res, 500, "Failed to upload logo.");
+      }
+      updatedFields.logo = result.secure_url;
+    }
 
-    // If countries are provided, fetch their details
-    if (countries && Array.isArray(countries)) {
+    // Handle countries update
+    if (countries) {
+      try {
+        countries = JSON.parse(countries);
+        if (!Array.isArray(countries) || countries.length === 0) {
+          return errorHandler(res, 400, "Countries must be a non-empty array.");
+        }
+      } catch (error) {
+        return errorHandler(res, 400, "Invalid countries format. Must be a JSON array.");
+      }
+
       const countryDocs = await Country.find({ name: { $in: countries } });
 
       if (countryDocs.length !== countries.length) {
         return errorHandler(res, 400, "One or more countries are invalid.");
       }
 
-      // Map country details
+      // ✅ Fix: Include `_id` field
       updatedFields.countries = countryDocs.map((country) => ({
-        id: country._id,
+        id: country._id, // <-- Added this line to fix validation error
         name: country.name,
         flag: country.flag,
       }));
     }
 
-    // Update the sport in the database
+    // Update the sport
     const updatedSport = await Sport.findByIdAndUpdate(sportId, updatedFields, {
-      new: true, // Return the updated document
-      runValidators: true, // Ensure validation rules are applied
+      new: true,
+      runValidators: true,
     });
 
     return responseHandler(res, 200, "Sport updated successfully", updatedSport);
@@ -94,7 +129,7 @@ exports.updateSport = async (req, res) => {
 
 exports.deleteSport = async (req, res) => {
   try {
-    const { sportId } = req.params; // Get sport ID from URL
+    const { sportId } = req.params;
 
     // Check if the sport exists
     const existingSport = await Sport.findById(sportId);
@@ -103,7 +138,7 @@ exports.deleteSport = async (req, res) => {
     }
 
     // Delete the sport
-    await Sport.findByIdAndDelete(sportId);
+    await Sport.deleteOne({ _id: sportId });
 
     return responseHandler(res, 200, "Sport deleted successfully");
   } catch (error) {
@@ -124,7 +159,6 @@ exports.getSportById = async (req, res) => {
   try {
     const { sportId } = req.params;
 
-    // Find the sport by ID
     const sport = await Sport.findById(sportId).populate("countries");
     if (!sport) {
       return errorHandler(res, 404, "Sport not found.");
@@ -141,7 +175,9 @@ exports.getSportsByCountry = async (req, res) => {
     const { countryName } = req.params;
 
     // Find sports where the country name matches in the embedded country details
-    const sports = await Sport.find({ "countries.name": countryName });
+    const sports = await Sport.find({
+      countries: { $elemMatch: { name: countryName } }
+    }).populate("countries");
 
     if (!sports.length) {
       return errorHandler(res, 404, "No sports found for this country.");

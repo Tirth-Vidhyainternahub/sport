@@ -1,14 +1,21 @@
 const express = require("express");
 const router = express.Router();
-const { createSport ,updateSport,deleteSport,getAllSports,getSportById,getSportsByCountry} = require("../controllers/sport.controller");
-const {validateToken} = require("../middleware/auth.middleware");
-const {validateAdmin} = require("../middleware/auth.middleware");
+const upload = require("../middleware/upload");
+const { validateToken, validateAdmin } = require("../middleware/auth.middleware");
+const {
+  createSport,
+  updateSport,
+  deleteSport,
+  getAllSports,
+  getSportById,
+  getSportsByCountry,
+} = require("../controllers/sport.controller");
 
-router.post("/", validateToken,validateAdmin,createSport); // Route to create a sport
-router.patch("/:sportId", validateToken, validateAdmin, updateSport); // Update sport by ID
+router.post("/", validateToken, validateAdmin, upload.single("logo"), createSport);
+router.patch("/:sportId", validateToken, validateAdmin, upload.single("logo"), updateSport);
 router.delete("/:sportId", validateToken, validateAdmin, deleteSport);
-router.get("/", validateToken,getAllSports); // Fetch all sports
-router.get("/:sportId", validateToken,getSportById); // Fetch a sport by ID
-router.get("/by-country/:countryName", validateToken, getSportsByCountry);
+router.get("/", getAllSports);
+router.get("/:sportId", getSportById);
+router.get("/country/:countryName", getSportsByCountry);
 
 module.exports = router;
