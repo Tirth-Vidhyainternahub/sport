@@ -1,11 +1,16 @@
 const Country = require("../models/country.model");
+const cloudinary = require("../config/cloudinaryConfig");
 const errorHandler = require("../utils/error");
 const responseHandler = require("../utils/response");
 
-// ✅ Create a new country
+// ✅ Create a new country with flag image upload
 const createCountry = async (req, res) => {
   try {
-    const { name, flag } = req.body;
+    const { name } = req.body;
+
+    if (!name || !req.file) {
+      return errorHandler(res, 400, "Name and flag image are required.");
+    }
 
     // Check if country already exists
     const existingCountry = await Country.findOne({ name });
@@ -13,13 +18,21 @@ const createCountry = async (req, res) => {
       return errorHandler(res, 400, "Country already exists.");
     }
 
-    // Create new country
-    const country = new Country({ name, flag });
-    await country.save();
+    // Upload flag image to Cloudinary
+    const result = await cloudinary.uploader.upload(req.file.path, {
+      folder: "country_flags", // Cloudinary folder
+    });
 
+    // Create new country with Cloudinary flag URL
+    const country = new Country({
+      name,
+      flag: result.secure_url, // Store Cloudinary link
+    });
+
+    await country.save();
     return responseHandler(res, 201, "Country created successfully.", country);
   } catch (error) {
-    return errorHandler(res, 500, "Internal Server Error.");
+    return errorHandler(res, 500, "Internal Server Error.", error);
   }
 };
 
@@ -49,17 +62,26 @@ const getCountryById = async (req, res) => {
   }
 };
 
-// ✅ Update country by ID
+// ✅ Update country (with optional flag image update)
 const updateCountry = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, flag } = req.body;
+    const { name } = req.body;
 
-    const updatedCountry = await Country.findByIdAndUpdate(
-      id,
-      { name, flag },
-      { new: true, runValidators: true }
-    );
+    let updateData = { name };
+
+    // If a new flag image is uploaded, update it in Cloudinary
+    if (req.file) {
+      const result = await cloudinary.uploader.upload(req.file.path, {
+        folder: "country_flags",
+      });
+      updateData.flag = result.secure_url; // Update Cloudinary link in database
+    }
+
+    const updatedCountry = await Country.findByIdAndUpdate(id, updateData, {
+      new: true,
+      runValidators: true,
+    });
 
     if (!updatedCountry) {
       return errorHandler(res, 404, "Country not found.");
