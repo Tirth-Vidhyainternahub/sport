@@ -2,41 +2,39 @@ const mongoose = require("mongoose");
 
 const UserPreferencesSchema = new mongoose.Schema(
   {
-    user: {
+    userId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User", // Reference to User
+      ref: "User",
       required: true,
-      unique: true, // Each user has only one preference entry
+      unique: true, // Ensures one user can have only one preferences document
+    },
+    userName: {
+      type: String,
+      required: true,
     },
     favoriteCountries: [
       {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Country", // Favorite Countries (Max 3)
+        id: { type: mongoose.Schema.Types.ObjectId, ref: "Country", required: true },
+        name: { type: String, required: true },
+        flag: { type: String },
       },
     ],
     favoriteSports: [
       {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Sport", // Favorite Sports (No Limit)
+        id: { type: mongoose.Schema.Types.ObjectId, ref: "Sport", required: true },
+        name: { type: String, required: true },
+        logo: { type: String },
       },
     ],
     favoriteLeagues: [
       {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "League", // Favorite Leagues (No Limit)
+        id: { type: mongoose.Schema.Types.ObjectId, ref: "League", required: true },
+        name: { type: String, required: true },
       },
     ],
   },
   { timestamps: true }
 );
-
-// Restrict max favorite countries to 3
-UserPreferencesSchema.pre("save", function (next) {
-  if (this.favoriteCountries.length > 3) {
-    return next(new Error("You can only select up to 3 favorite countries."));
-  }
-  next();
-});
 
 const UserPreferences = mongoose.model("UserPreferences", UserPreferencesSchema);
 module.exports = UserPreferences;
