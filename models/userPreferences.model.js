@@ -8,28 +8,22 @@ const UserPreferencesSchema = new mongoose.Schema(
       required: true,
       unique: true, // Ensures one user can have only one preferences document
     },
-    userName: {
-      type: String,
-      required: true,
-    },
     favoriteCountries: [
       {
-        id: { type: mongoose.Schema.Types.ObjectId, ref: "Country", required: true },
-        name: { type: String, required: true },
-        flag: { type: String },
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Country",
       },
     ],
     favoriteSports: [
       {
-        id: { type: mongoose.Schema.Types.ObjectId, ref: "Sport", required: true },
-        name: { type: String, required: true },
-        logo: { type: String },
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Sport",
       },
     ],
     favoriteLeagues: [
       {
-        id: { type: mongoose.Schema.Types.ObjectId, ref: "League", required: true },
-        name: { type: String, required: true },
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "League",
       },
     ],
   },
