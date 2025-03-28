@@ -110,7 +110,7 @@ const getUserPreferences = async (req, res) => {
       .populate("favoriteSports", "name logo")
       .populate({
         path: "favoriteLeagues",
-        select: "name country",
+        select: "name startDate endDate country",
         populate: { path: "country", select: "name code flag" }, // Populate country details for leagues
       })
       .lean(); // Optimize query performance
@@ -129,6 +129,8 @@ const getUserPreferences = async (req, res) => {
           })),
           favoriteLeagues: userPreferences.favoriteLeagues.map((l) => ({
             name: l.name,
+            startDate: l.startDate, // Include start date
+            endDate: l.endDate, // Include end date
             country: l.country ? { name: l.country.name, code: l.country.code, flag: l.country.flag } : null,
           })),
         }
@@ -149,6 +151,7 @@ const getUserPreferences = async (req, res) => {
     return errorHandler(res, 500, error.message || "Something went wrong while fetching preferences.");
   }
 };
+
 
 const getAllUserPreferences = async (req, res) => {
   try {
