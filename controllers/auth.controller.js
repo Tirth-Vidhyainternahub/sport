@@ -247,4 +247,67 @@ const manualLogin = async (req, res) => {
   }
 };
 
-module.exports = {googleLogin,facebookLogin,manualSignup,verifyEmail,manualLogin};
+const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return errorHandler(res, 400, "Email is required.");
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return errorHandler(res, 400, "User with this email does not exist.");
+    }
+
+    // Generate a unique reset token (valid for 15 minutes)
+    const resetToken = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "15m",
+    });
+
+    const resetLink = `http://localhost:8080/api/v1/auth/reset-password/${resetToken}`;
+
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: user.email,
+      subject: "Password Reset Request",
+      html: `<p>Hello ${user.name},</p>
+        <p>You requested to reset your password. Click the link below to set a new password:</p>
+        <a href="${resetLink}">${resetLink}</a>
+        <p>This link will expire in 15 minutes.</p>`,
+    });
+
+    responseHandler(res, 200, "Password reset link sent successfully.");
+  } catch (error) {
+    errorHandler(res, 500, "Forgot Password Failed", error);
+  }
+};
+
+// Reset Password - Update Password
+const resetPassword = async (req, res) => {
+  try {
+    const { token } = req.params;
+    const { newPassword } = req.body;
+
+    if (!newPassword || newPassword.length < 6) {
+      return errorHandler(res, 400, "Password must be at least 6 characters long.");
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.userId);
+
+    if (!user) {
+      return errorHandler(res, 400, "Invalid or expired reset token.");
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    await user.save();
+
+    responseHandler(res, 200, "Password reset successfully.");
+  } catch (error) {
+    errorHandler(res, 400, "Invalid or expired token.");
+  }
+};
+
+module.exports = {googleLogin,facebookLogin,manualSignup,verifyEmail,manualLogin,forgotPassword, resetPassword};
