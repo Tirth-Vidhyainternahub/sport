@@ -9,6 +9,7 @@ const {
   getAllSports,
   getSportById,
   getSportsByCountry,
+  getSportByIdWithLeagues
 } = require("../controllers/sport.controller");
 
 router.post("/", validateToken, validateAdmin, upload.single("logo"), createSport);
@@ -16,6 +17,7 @@ router.patch("/:sportId", validateToken, validateAdmin, upload.single("logo"), u
 router.delete("/:sportId", validateToken, validateAdmin, deleteSport);
 router.get("/", getAllSports);
 router.get("/:sportId", getSportById);
-router.get("/country/:countryId", getSportsByCountry); // Changed to countryId instead of countryName
+router.get("/country/:countryId", getSportsByCountry);
+router.get("/:sportId/leagues", getSportByIdWithLeagues);
 
 module.exports = router;

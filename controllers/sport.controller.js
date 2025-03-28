@@ -2,6 +2,7 @@ const Sport = require("../models/sport.model");
 const Country = require("../models/country.model");
 const errorHandler = require("../utils/error");
 const responseHandler = require("../utils/response");
+const League = require("../models/league.model");
 const cloudinary = require("../config/cloudinaryConfig");
 
 exports.createSport = async (req, res) => {
@@ -175,5 +176,40 @@ exports.getSportsByCountry = async (req, res) => {
     return responseHandler(res, 200, "Sports fetched successfully.", sports);
   } catch (error) {
     return errorHandler(res, 500, "Server error", error.message);
+  }
+};
+
+exports.getSportByIdWithLeagues = async (req, res) => {
+  try {
+    const { sportId } = req.params; // Corrected the variable name
+
+    if (!sportId) {
+      return errorHandler(res, 400, "Sport ID is required.");
+    }
+
+    // Fetch the specific sport with populated country details
+    const sport = await Sport.findById(sportId).populate("countries", "name flag");
+
+    if (!sport) {
+      return errorHandler(res, 404, "Sport not found.");
+    }
+
+    // Fetch leagues that belong to this sport
+    const leagues = await League.find({ sport: sportId }).populate("country", "name flag");
+
+    // Format response
+    const formattedSport = {
+      ...sport.toObject(), // Convert Mongoose document to plain object
+      leagues: leagues.map((league) => ({
+        _id: league._id,
+        name: league.name,
+        country: league.country, // Populated country object
+      })),
+    };
+
+    return responseHandler(res, 200, "Sport details retrieved successfully", formattedSport);
+  } catch (error) {
+    console.error("Error fetching sport by ID:", error);
+    return errorHandler(res, 500, "Something went wrong.");
   }
 };
