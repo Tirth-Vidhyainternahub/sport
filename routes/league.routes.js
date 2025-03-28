@@ -7,7 +7,7 @@ const {
     updateLeague,
     deleteLeague,
 } = require("../controllers/league.controller");
-const {validateToken, validateAdmin} = require("../middleware/auth.middleware");
+const { validateToken, validateAdmin } = require("../middleware/auth.middleware");
 
 router.post("/", validateToken, validateAdmin, createLeague); // Create league
 router.get("/", getLeagues); // Get all leagues

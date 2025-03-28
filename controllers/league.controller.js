@@ -1,52 +1,52 @@
+const mongoose = require("mongoose");
 const League = require("../models/league.model");
 const Sport = require("../models/sport.model");
 const Country = require("../models/country.model");
-const responseHandler = require("../utils/response");
 const errorHandler = require("../utils/error");
+const responseHandler = require("../utils/response");
 
-// Create a new league
+
 const createLeague = async (req, res) => {
     try {
-        const { name, sportName, countryName, category, startDate, endDate } = req.body;
+        const { name, sport, country, category, startDate, endDate } = req.body;
 
         // Validate required fields
-        if (!name || !sportName || !countryName || !category || !startDate || !endDate) {
+        if (!name || !sport || !country || !category || !startDate || !endDate) {
             return errorHandler(res, 400, "All fields are required.");
         }
 
-        // Fetch the sport details from the database
-        const sport = await Sport.findOne({ name: sportName });
-        if (!sport) {
-            return errorHandler(res, 400, "Invalid sport name.");
+        // Check if league with the same name already exists
+        const existingLeague = await League.findOne({ name });
+        if (existingLeague) {
+            return errorHandler(res, 400, "League name already exists.");
         }
 
-        // Fetch the country details from the database
-        const country = await Country.findOne({ name: countryName });
-        if (!country) {
-            return errorHandler(res, 400, "Invalid country name.");
+        // Validate if the sport and country IDs are valid ObjectIds
+        if (!mongoose.Types.ObjectId.isValid(sport) || !mongoose.Types.ObjectId.isValid(country)) {
+            return errorHandler(res, 400, "Invalid sport or country ID.");
         }
 
-        // Extract the list of valid country names for the sport
-        const validCountries = sport.countries.map(c => c.name);
-
-        // Check if the given country is in the list
-        if (!validCountries.includes(countryName)) {
-            return errorHandler(res, 400, `The sport '${sportName}' is only available in: ${validCountries.join(", ")}.`);
+        // Check if Sport and Country exist in the database
+        const sportData = await Sport.findById(sport);
+        if (!sportData) {
+            return errorHandler(res, 400, "Sport not found.");
         }
 
-        // Create a new league with proper sport and country structure
+        const countryData = await Country.findById(country);
+        if (!countryData) {
+            return errorHandler(res, 400, "Country not found.");
+        }
+
+        // Check if the sport is available in the given country
+        if (!sportData.countries.includes(country)) {
+            return errorHandler(res, 400, `The sport '${sportData.name}' is not available in '${countryData.name}'.`);
+        }
+
+        // Create a new league with ObjectId references
         const newLeague = new League({
             name,
-            sport: {
-                id: sport._id,
-                name: sport.name,
-                logo: sport.logo,
-            },
-            country: {
-                id: country._id,
-                name: country.name,
-                flag: country.flag,
-            },
+            sport,
+            country,
             category,
             startDate,
             endDate,
@@ -54,16 +54,23 @@ const createLeague = async (req, res) => {
 
         await newLeague.save();
 
-        return responseHandler(res, 201, "League created successfully.", newLeague);
+        // Populate the response to return full details instead of only ObjectIds
+        const populatedLeague = await League.findById(newLeague._id)
+            .populate("sport", "name") // Fetch only 'name' from Sport
+            .populate("country", "name"); // Fetch 'name' and 'code' from Country
+
+        return responseHandler(res, 201, "League created successfully.", populatedLeague);
     } catch (error) {
         return errorHandler(res, 500, "Internal Server Error", error.message);
     }
 };
 
-// Get all leagues
+// Get all leagues with sport and country details
 const getLeagues = async (req, res) => {
     try {
-        const leagues = await League.find();
+        const leagues = await League.find()
+            .populate("sport", "name logo")
+            .populate("country", "name flag");
 
         if (!leagues.length) {
             return errorHandler(res, 404, "No leagues found.");
@@ -75,11 +82,13 @@ const getLeagues = async (req, res) => {
     }
 };
 
-// Get league by ID
+// Get league by ID with sport and country details
 const getLeagueById = async (req, res) => {
     try {
         const { id } = req.params;
-        const league = await League.findById(id);
+        const league = await League.findById(id)
+            .populate("sport", "name logo")
+            .populate("country", "name flag");
 
         if (!league) {
             return errorHandler(res, 404, "League not found.");
@@ -97,60 +106,59 @@ const updateLeague = async (req, res) => {
         const { id } = req.params;
         const { name, sport, country, category, startDate, endDate } = req.body;
 
+        // Validate ObjectId format
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return errorHandler(res, 400, "Invalid League ID.");
+        }
+
         // Check if league exists
         const existingLeague = await League.findById(id);
         if (!existingLeague) {
             return errorHandler(res, 404, "League not found.");
         }
 
-        let sportData = existingLeague.sport;
-        let countryData = existingLeague.country;
+        let sportId = existingLeague.sport;
+        let countryId = existingLeague.country;
 
-        // Validate Sport by Name
+        // Validate sport if provided
         if (sport) {
-            const foundSport = await Sport.findOne({ name: sport });
-            if (!foundSport) {
-                return errorHandler(res, 404, `Sport '${sport}' not found.`);
+            if (!mongoose.Types.ObjectId.isValid(sport)) {
+                return errorHandler(res, 400, "Invalid sport ID.");
             }
-            sportData = {
-                id: foundSport._id,
-                name: foundSport.name,
-                logo: foundSport.logo,
-            };
+            const foundSport = await Sport.findById(sport);
+            if (!foundSport) {
+                return errorHandler(res, 404, "Sport not found.");
+            }
+            sportId = foundSport._id;
         }
 
-        // Validate Country by Name
+        // Validate country if provided
         if (country) {
-            const foundCountry = await Country.findOne({ name: country });
+            if (!mongoose.Types.ObjectId.isValid(country)) {
+                return errorHandler(res, 400, "Invalid country ID.");
+            }
+            const foundCountry = await Country.findById(country);
             if (!foundCountry) {
-                return errorHandler(res, 404, `Country '${country}' not found.`);
+                return errorHandler(res, 404, "Country not found.");
             }
 
-            // Ensure that the selected country exists in the sport's countries array
-            const foundSport = await Sport.findOne({ name: sport || existingLeague.sport.name });
+            // Ensure sport is available in the selected country
+            const foundSport = await Sport.findById(sportId);
             const countryExistsInSport = foundSport.countries.some(
-                (c) => c.name.toLowerCase() === country.toLowerCase()
+                (c) => c.toString() === country
             );
 
             if (!countryExistsInSport) {
-                return errorHandler(
-                    res,
-                    400,
-                    `The sport '${sport || existingLeague.sport.name}' is not available in '${country}'.`
-                );
+                return errorHandler(res, 400, `The sport '${foundSport.name}' is not available in the selected country.`);
             }
 
-            countryData = {
-                id: foundCountry._id,
-                name: foundCountry.name,
-                flag: foundCountry.flag,
-            };
+            countryId = foundCountry._id;
         }
 
         // Update League Details
         existingLeague.name = name || existingLeague.name;
-        existingLeague.sport = sportData;
-        existingLeague.country = countryData;
+        existingLeague.sport = sportId;
+        existingLeague.country = countryId;
         existingLeague.category = category || existingLeague.category;
         existingLeague.startDate = startDate || existingLeague.startDate;
         existingLeague.endDate = endDate || existingLeague.endDate;
@@ -158,9 +166,14 @@ const updateLeague = async (req, res) => {
         // Save Updated League
         await existingLeague.save();
 
-        return responseHandler(res, 200, "League updated successfully.", existingLeague);
+        // Populate the response to return full details
+        const populatedLeague = await League.findById(existingLeague._id)
+            .populate("sport", "name") // Fetch only 'name' from Sport
+            .populate("country", "name"); // Fetch 'name' and 'code' from Country
+
+        return responseHandler(res, 200, "League updated successfully.", populatedLeague);
     } catch (error) {
-        return errorHandler(res, 500, "Something went wrong.", error);
+        return errorHandler(res, 500, "Something went wrong.", error.message);
     }
 };
 
@@ -169,8 +182,16 @@ const deleteLeague = async (req, res) => {
     try {
         const { id } = req.params;
 
+        // Validate ObjectId format
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return errorHandler(res, 400, "Invalid League ID.");
+        }
+
         // Check if the league exists
-        const league = await League.findById(id);
+        const league = await League.findById(id)
+            .populate("sport", "name") // Fetch only 'name' from Sport
+            .populate("country", "name"); // Fetch 'name' and 'code' from Country
+
         if (!league) {
             return errorHandler(res, 404, "League not found.");
         }
@@ -178,9 +199,9 @@ const deleteLeague = async (req, res) => {
         // Delete the league
         await League.deleteOne({ _id: id });
 
-        return responseHandler(res, 200, "League deleted successfully.");
+        return responseHandler(res, 200, "League deleted successfully.", league);
     } catch (error) {
-        return errorHandler(res, 500, "Something went wrong while deleting the league.", error);
+        return errorHandler(res, 500, "Something went wrong while deleting the league.", error.message);
     }
 };
 
