@@ -5,10 +5,13 @@ const SportSchema = new mongoose.Schema(
     name: {
       type: String,
       required: true,
+      unique: true, // Ensures sport names are unique
+      trim: true,
     },
     category: {
       type: String,
       required: true,
+      trim: true,
     },
     logo: {
       type: String,
@@ -16,10 +19,9 @@ const SportSchema = new mongoose.Schema(
     },
     countries: [
       {
-        _id: false, // Prevent MongoDB from generating new IDs for embedded documents
-        id: { type: mongoose.Schema.Types.ObjectId, required: true }, // Store original ObjectId
-        name: { type: String, required: true },
-        flag: { type: String, required: true },
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Country", // Reference to the Country model
+        required: true,
       },
     ],
   },

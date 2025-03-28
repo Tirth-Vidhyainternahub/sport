@@ -103,7 +103,9 @@ const deleteCountry = async (req, res) => {
       return errorHandler(res, 404, "Country not found.");
     }
 
-    return responseHandler(res, 200, "Country deleted successfully.");
+    return responseHandler(res, 200, "Country deleted successfully.", {
+      deletedCountry
+    });
   } catch (error) {
     return errorHandler(res, 500, "Internal Server Error.");
   }

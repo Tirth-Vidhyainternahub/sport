@@ -30,37 +30,33 @@ exports.createSport = async (req, res) => {
     }
 
     // Upload logo to Cloudinary
-    const result = await cloudinary.uploader.upload(req.file.path, { folder: "sports" }); // Store in 'sports' folder
+    const result = await cloudinary.uploader.upload(req.file.path, { folder: "sports" });
     if (!result.secure_url) {
       return errorHandler(res, 500, "Failed to upload logo.");
     }
 
     // Fetch country documents from the database
-    const countryDocs = await Country.find({ name: { $in: countries } });
+    const countryDocs = await Country.find({ _id: { $in: countries } });
 
     // Validate that all countries exist
     if (countryDocs.length !== countries.length) {
-      return errorHandler(res, 400, "One or more countries are invalid.");
+      return errorHandler(res, 400, "One or more country IDs are invalid.");
     }
 
-    // ✅ Fix: Include `_id` field
-    const countryData = countryDocs.map((country) => ({
-      id: country._id, // <-- Added this line to fix validation error
-      name: country.name,
-      flag: country.flag,
-    }));
-
-    // Create new sport entry
+    // Create new sport entry with country references
     const newSport = new Sport({
       name,
       category,
       logo: result.secure_url,
-      countries: countryData, // Now includes `id`
+      countries: countryDocs.map((country) => country._id),
     });
 
     await newSport.save();
 
-    return responseHandler(res, 201, "Sport created successfully", newSport);
+    // Populate country details in the response
+    const populatedSport = await Sport.findById(newSport._id).populate("countries");
+
+    return responseHandler(res, 201, "Sport created successfully", populatedSport);
   } catch (error) {
     return errorHandler(res, 500, "Server error", error.message);
   }
@@ -101,25 +97,20 @@ exports.updateSport = async (req, res) => {
         return errorHandler(res, 400, "Invalid countries format. Must be a JSON array.");
       }
 
-      const countryDocs = await Country.find({ name: { $in: countries } });
+      const countryDocs = await Country.find({ _id: { $in: countries } });
 
       if (countryDocs.length !== countries.length) {
-        return errorHandler(res, 400, "One or more countries are invalid.");
+        return errorHandler(res, 400, "One or more country IDs are invalid.");
       }
 
-      // ✅ Fix: Include `_id` field
-      updatedFields.countries = countryDocs.map((country) => ({
-        id: country._id, // <-- Added this line to fix validation error
-        name: country.name,
-        flag: country.flag,
-      }));
+      updatedFields.countries = countryDocs.map((country) => country._id);
     }
 
     // Update the sport
     const updatedSport = await Sport.findByIdAndUpdate(sportId, updatedFields, {
       new: true,
       runValidators: true,
-    });
+    }).populate("countries");
 
     return responseHandler(res, 200, "Sport updated successfully", updatedSport);
   } catch (error) {
@@ -132,7 +123,7 @@ exports.deleteSport = async (req, res) => {
     const { sportId } = req.params;
 
     // Check if the sport exists
-    const existingSport = await Sport.findById(sportId);
+    const existingSport = await Sport.findById(sportId).populate("countries"); // Populate countries
     if (!existingSport) {
       return errorHandler(res, 404, "Sport not found.");
     }
@@ -140,7 +131,7 @@ exports.deleteSport = async (req, res) => {
     // Delete the sport
     await Sport.deleteOne({ _id: sportId });
 
-    return responseHandler(res, 200, "Sport deleted successfully");
+    return responseHandler(res, 200, "Sport deleted successfully", existingSport);
   } catch (error) {
     return errorHandler(res, 500, "Server error", error.message);
   }
@@ -172,12 +163,10 @@ exports.getSportById = async (req, res) => {
 
 exports.getSportsByCountry = async (req, res) => {
   try {
-    const { countryName } = req.params;
+    const { countryId } = req.params;
 
-    // Find sports where the country name matches in the embedded country details
-    const sports = await Sport.find({
-      countries: { $elemMatch: { name: countryName } }
-    }).populate("countries");
+    // Find sports where the country ID matches in the referenced array
+    const sports = await Sport.find({ countries: countryId }).populate("countries");
 
     if (!sports.length) {
       return errorHandler(res, 404, "No sports found for this country.");

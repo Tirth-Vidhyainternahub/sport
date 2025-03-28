@@ -16,6 +16,6 @@ router.patch("/:sportId", validateToken, validateAdmin, upload.single("logo"), u
 router.delete("/:sportId", validateToken, validateAdmin, deleteSport);
 router.get("/", getAllSports);
 router.get("/:sportId", getSportById);
-router.get("/country/:countryName", getSportsByCountry);
+router.get("/country/:countryId", getSportsByCountry); // Changed to countryId instead of countryName
 
 module.exports = router;
